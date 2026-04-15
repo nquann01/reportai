@@ -1,0 +1,528 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Báo Cáo Tổng Hợp — AI</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+
+</head>
+<body onload="initApp()">
+<!-- MÀN HÌNH NHẬP TOKEN -->
+<div id="auth-screen" style="position:fixed;inset:0;background:#0f1117;display:flex;align-items:center;justify-content:center;z-index:9999;">
+  <div style="background:#181c27;border:1px solid #2a3050;border-radius:16px;padding:40px;width:360px;text-align:center;">
+    <div style="font-size:32px;margin-bottom:16px;">⚡</div>
+    <h2 style="color:#e8eaf6;font-size:18px;margin-bottom:8px;">Báo Cáo AI</h2>
+    <p style="color:#8892b0;font-size:12px;margin-bottom:24px;">Nhập mã truy cập để tiếp tục</p>
+    <input id="token-input" type="password" placeholder="Nhập mã truy cập..."
+      style="width:100%;background:#1e2336;border:1px solid #2a3050;border-radius:8px;color:#e8eaf6;padding:12px;font-size:13px;outline:none;margin-bottom:12px;box-sizing:border-box;text-align:center;letter-spacing:2px;">
+    <button onclick="checkToken()"
+      style="width:100%;background:#4f7cff;color:white;border:none;border-radius:8px;padding:13px;font-size:13px;font-weight:700;cursor:pointer;">
+      Xác nhận →
+    </button>
+    <p id="auth-error" style="color:#ff5f7e;font-size:11px;margin-top:12px;display:none;"></p>
+  </div>
+</div>
+
+<div id="ai-setting-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:10000; align-items:center; justify-content:center;">
+  <div style="background:var(--sur); border:1px solid var(--bdr); border-radius:12px; width:400px; padding:25px;">
+    <h3 style="color:var(--warn); margin-bottom:15px; font-size:16px;">⚙️ Cài đặt Khẩu vị AI</h3>
+    
+    <label style="font-size:11px; color:var(--tx2); font-weight:bold;">1. Xưng hô & Văn phong</label>
+    <select id="ai-tone" style="width:100%; background:var(--sur2); border:1px solid var(--bdr); color:var(--tx); padding:8px; border-radius:6px; margin:5px 0 15px;">
+      <option value="default">🤖 Trợ lý AI mặc định (Không can thiệp)</option>
+      <option value="Chuyên nghiệp, khách quan, súc tích.">Chuyên nghiệp, khách quan</option>
+      <option value="Xưng 'em' gọi 'sếp', phân tích thẳng thắn, soi lỗi cực gắt.">Gắt gao, soi lỗi (Xưng Em/Sếp)</option>
+      <option value="Lạc quan, khen ngợi những điểm làm tốt, động viên team.">Động viên, tích cực</option>
+    </select>
+
+    <label style="font-size:11px; color:var(--tx2); font-weight:bold;">2. Góc nhìn tập trung</label>
+    <select id="ai-focus" style="width:100%; background:var(--sur2); border:1px solid var(--bdr); color:var(--tx); padding:8px; border-radius:6px; margin:5px 0 15px;">
+      <option value="default">🤖 Mặc định (Phân tích tổng hợp)</option>
+      <option value="Đặc biệt soi kỹ dòng tiền, CPQC và tỷ suất lợi nhuận (ROAS).">Dòng tiền & Chi phí (ROAS, CPQC)</option>
+      <option value="Đặc biệt soi kỹ tỷ lệ chốt đơn, phễu data và hiệu suất sale.">Phễu chuyển đổi & Chốt đơn</option>
+    </select>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+      <button onclick="document.getElementById('ai-setting-modal').style.display='none'" style="padding:8px 15px; border-radius:6px; border:1px solid var(--bdr); background:transparent; color:var(--tx); cursor:pointer;">Đóng</button>
+      <button onclick="saveAiSettings()" style="padding:8px 15px; border-radius:6px; border:none; background:var(--warn); color:#000; font-weight:bold; cursor:pointer;">💾 Lưu cài đặt</button>
+    </div>
+  </div>
+</div>
+<header>
+  <div class="logo">⚡</div>
+  <div><h1>⚡Data Analysis</h1><p>Phân tích dữ liệu, Hỏi đáp đối chiếu & Dự báo tương lai - Developed by QuanNA</p></div>
+</header>
+<div class="app">
+  <div class="left">
+    <div class="left-scroll">
+      
+      <div class="sec-lbl">Cài đặt API Key</div>
+      <div class="api-key-box">
+        <input type="password" id="api-key-input" placeholder="Nhập API Key của bạn...">
+        <button onclick="saveApiKey()" class="btn-save-key">Check</button>
+        <button onclick="clearApiKey()" class="btn-del-key">Xoá</button>
+      </div>
+
+      <div class="sec-lbl">Chọn Dự Án</div>
+      <div class="tabs" style="margin-bottom: 8px;">
+        <input type="radio" id="p-main" name="ptype" value="Main" checked onchange="updateUI()">
+        <label for="p-main">Gunze & Mỹ Phẩm</label>
+        <input type="radio" id="p-kosu" name="ptype" value="Kosu" onchange="updateUI()">
+        <label for="p-kosu" style="color: var(--kosu); font-weight: 700;">⭐ Giày Kosu</label>
+      </div>
+
+      <div class="sec-lbl">Loại báo cáo</div>
+      <div class="tabs">
+        <input type="radio" id="tw" name="rtype" value="Tuần" checked onchange="updateUI()">
+        <label for="tw">Báo cáo Tuần</label>
+        <input type="radio" id="tm" name="rtype" value="Tháng" onchange="updateUI()">
+        <label for="tm">Báo cáo Tháng</label>
+        <input type="radio" id="db" name="rtype" value="Dashboard" onchange="updateUI()">
+        <label for="db" style="color:var(--acc2)">📊 Dashboard SP</label>
+      </div>
+
+      <div id="zone-main">
+        <div id="tab-main-tuan">
+          <div class="sec-lbl">Thông tin báo cáo Tuần (Gunze & MP)</div>
+          <div class="meta-row">
+            <input id="week" placeholder="Tuần số (VD: 12)" type="number">
+            <input id="dfrom" placeholder="Từ ngày (17/3)">
+            <input id="dto" placeholder="Đến ngày (23/3)">
+          </div>
+
+          <div class="sec-lbl">Data Sale</div>
+          <div class="iblock">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--gunze)"></div>
+              <div class="iblock-title" style="color:var(--gunze)">Dự án Gunze</div>
+            </div>
+            <div class="spend-box">
+              <input id="spend-g" type="text" placeholder="💰 Nhập số tiền chi tiêu QC (VD: 19.154.139)...">
+            </div>
+            <textarea id="sg" placeholder="Paste toàn bộ báo cáo Gunze từ Sale vào đây..."></textarea>
+          </div>
+
+          <div class="iblock">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--mp)"></div>
+              <div class="iblock-title" style="color:var(--mp)">Dự án Mỹ phẩm</div>
+            </div>
+            <div class="spend-box">
+              <input id="spend-m" type="text" placeholder="💰 Nhập số tiền chi tiêu QC (VD: 15.000.000)...">
+            </div>
+            <textarea id="sm" placeholder="Paste toàn bộ báo cáo Mỹ phẩm từ Sale vào đây..."></textarea>
+          </div>
+
+          <div class="sec-lbl">Data cửa hàng (Ảnh / Excel)</div>
+          <div class="iblock">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--warn)"></div>
+              <div class="iblock-title" style="color:var(--warn)">Khu vực HCM</div>
+            </div>
+            <div class="img-area">
+              <div class="drop-zone">
+                <input type="file" accept="image/*, .xlsx, .xls, .csv" multiple onchange="handleFiles(this.files, 'hcm')">
+                <div class="drop-lbl">
+                  <strong>📷 Upload Ảnh/Excel Cửa hàng HCM</strong>
+                  (Lấy cột: Doanh thu KHM)
+                </div>
+              </div>
+              <div class="previews" id="previews-hcm"></div>
+            </div>
+          </div>
+
+          <div class="iblock">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--danger)"></div>
+              <div class="iblock-title" style="color:var(--danger)">Khu vực HN</div>
+            </div>
+            <div class="img-area">
+              <div class="drop-zone">
+                <input type="file" accept="image/*, .xlsx, .xls, .csv" multiple onchange="handleFiles(this.files, 'hn')">
+                <div class="drop-lbl">
+                  <strong>📷 Upload Ảnh/Excel Cửa hàng HN</strong>
+                  (Lấy cột: DTT KHM)
+                </div>
+              </div>
+              <div class="previews" id="previews-hn"></div>
+            </div>
+          </div>
+
+          <div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:9px;padding:12px 14px;margin-top:4px;">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tx3);margin-bottom:8px;">Công thức tự tính</div>
+            <div style="font-size:11px;color:var(--tx2);line-height:2.1;">
+              <span style="color:var(--gunze)">Gunze</span> KHM = KHM Đồ lót HCM + KHM Đồ lót HN<br>
+              <span style="color:var(--mp)">Mỹ phẩm</span> KHM = KHM MP HCM + KHM MP HN<br>
+              <span style="color:var(--acc2)">DT hệ thống</span> = DT thuần Sale + Tổng KHM<br>
+              <span style="color:var(--warn)">CP QC Online</span> = Chi tiêu ÷ DT thuần<br>
+              <span style="color:var(--warn)">CP QC Online sau thuế</span> = (Chi tiêu × 110%) ÷ (DT thuần ÷ 1,08)<br>
+              <span style="color:var(--warn)">CP QC hệ thống</span> = Chi tiêu ÷ DT hệ thống
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-main-thang" class="d-none">
+          <div class="sec-lbl">báo cáo Tháng (Gunze & MP)</div>
+          <div class="meta-row">
+            <input id="month" placeholder="Tháng số (VD: 2)" type="number">
+            <input id="m-from" placeholder="Từ ngày (1/2)">
+            <input id="m-to" placeholder="Đến ngày (28/2)">
+          </div>
+
+          <div class="sec-lbl">Input 1: Tham Chiếu KPI</div>
+          <div class="iblock">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--tx2)"></div>
+              <div class="iblock-title" style="color:var(--tx2)">KPI Các Dự Án & Cửa Hàng</div>
+            </div>
+            <div class="img-area">
+              <div class="drop-zone">
+                <input type="file" accept="image/*, .xlsx, .xls, .csv" multiple onchange="handleFiles(this.files, 'kpi')">
+                <div class="drop-lbl"><strong>📷 Upload Ảnh hoặc File Excel KPI</strong></div>
+              </div>
+              <div class="previews" id="previews-kpi"></div>
+            </div>
+          </div>
+          
+          <div class="sec-lbl">Số liệu Kinh Doanh Từng Dự Án</div>
+          
+          <div class="iblock">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--gunze)"></div>
+              <div class="iblock-title" style="color:var(--gunze)">Dự án Gunze</div>
+            </div>
+            <div class="img-area">
+              <div class="drop-zone">
+                <input type="file" accept="image/*, .xlsx, .xls, .csv" multiple onchange="handleFiles(this.files, 'thang_gunze')">
+                <div class="drop-lbl"><strong>📷 Upload Ảnh/Excel Gunze</strong></div>
+              </div>
+              <div class="previews" id="previews-thang_gunze"></div>
+            </div>
+          </div>
+
+          <div class="iblock">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--mp)"></div>
+              <div class="iblock-title" style="color:var(--mp)">Dự án Mỹ phẩm</div>
+            </div>
+            <div class="img-area">
+              <div class="drop-zone">
+                <input type="file" accept="image/*, .xlsx, .xls, .csv" multiple onchange="handleFiles(this.files, 'thang_mp')">
+                <div class="drop-lbl"><strong>📷 Upload Ảnh/Excel Mỹ phẩm</strong></div>
+              </div>
+              <div class="previews" id="previews-thang_mp"></div>
+            </div>
+          </div>
+
+          <div class="sec-lbl">Dữ liệu Khối Cửa Hàng</div>
+          
+          <div class="iblock">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--warn)"></div>
+              <div class="iblock-title" style="color:var(--warn)">Input 2: Dữ liệu Facebook/Cửa hàng</div>
+            </div>
+            <div class="img-area">
+              <div class="drop-zone">
+                <input type="file" accept=".xlsx, .xls, .csv, .txt" onchange="handleSpecialExcelFile(this.files)">
+                <div class="drop-lbl"><strong>📁 Upload file Excel / CSV (Ads)</strong></div>
+              </div>
+              <div class="previews" id="preview-excel"></div>
+            </div>
+          </div>
+
+          <div class="iblock">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--warn)"></div>
+              <div class="iblock-title" style="color:var(--warn)">Input 3: Số liệu Thực đạt Cửa hàng</div>
+            </div>
+            <div class="img-area">
+              <div class="drop-zone">
+                <input type="file" accept="image/*, .xlsx, .xls, .csv" multiple onchange="handleFiles(this.files, 'thang_cuahang')">
+                <div class="drop-lbl"><strong>📷 Upload Ảnh/Excel Thực đạt CH</strong></div>
+              </div>
+              <div class="previews" id="previews-thang_cuahang"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-main-dashboard" class="d-none">
+  <div class="sec-lbl" style="color:var(--acc2);">Dashboard Phân Tích SP — Gunze & Mỹ Phẩm</div>
+ 
+  <div class="iblock" style="border-color:var(--tx);">
+    <div class="iblock-hdr">
+      <div class="idot" style="background:var(--tx)"></div>
+      <div class="iblock-title" style="color:var(--tx)">1. Dữ liệu THÁNG HIỆN TẠI</div>
+    </div>
+    <div class="img-area" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div>
+        <div style="font-size:10px;color:var(--tx);margin-bottom:4px;font-weight:600;">🛒 Sapo (Chung G & MP)</div>
+        <div class="drop-zone" style="border-color:rgba(255,255,255,0.4);">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="handleMainDbFile(this.files,'sapo_cur')">
+          <div class="drop-lbl"><strong style="font-size:10px;color:var(--tx);">Upload Sapo Tháng Này</strong></div>
+        </div>
+        <div id="prev_main_sapo_cur"></div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--acc2);margin-bottom:4px;font-weight:600;">📘 FB Ads (Chung G & MP)</div>
+        <div class="drop-zone" style="border-color:rgba(56,224,176,0.4);">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="handleMainDbFile(this.files,'ads_cur')">
+          <div class="drop-lbl"><strong style="font-size:10px;color:var(--acc2);">Upload Ads Tháng Này</strong></div>
+        </div>
+        <div id="prev_main_ads_cur"></div>
+      </div>
+    </div>
+  </div>
+ 
+  <div class="iblock" style="border-color:var(--tx3);">
+    <div class="iblock-hdr">
+      <div class="idot" style="background:var(--tx3)"></div>
+      <div class="iblock-title" style="color:var(--tx3)">2. Dữ liệu THÁNG TRƯỚC (Để so sánh MoM)</div>
+    </div>
+    <div class="img-area" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div>
+        <div style="font-size:10px;color:var(--tx3);margin-bottom:4px;font-weight:600;">🛒 Sapo Cũ (Chung G & MP)</div>
+        <div class="drop-zone" style="border-color:var(--tx3);">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="handleMainDbFile(this.files,'sapo_prev')">
+          <div class="drop-lbl" style="color:var(--tx3);"><strong style="font-size:10px;">Upload Sapo Tháng Trước</strong></div>
+        </div>
+        <div id="prev_main_sapo_prev"></div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--tx3);margin-bottom:4px;font-weight:600;">📘 FB Ads Cũ (Chung G & MP)</div>
+        <div class="drop-zone" style="border-color:var(--tx3);">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="handleMainDbFile(this.files,'ads_prev')">
+          <div class="drop-lbl" style="color:var(--tx3);"><strong style="font-size:10px;">Upload Ads Tháng Trước</strong></div>
+        </div>
+        <div id="prev_main_ads_prev"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+      <div id="zone-kosu" class="d-none">
+        <div id="tab-kosu-tuan">
+          <div class="sec-lbl" style="color:var(--kosu);">Thông tin báo cáo Tuần (Giày Kosu)</div>
+          <div class="meta-row">
+            <input id="week-k" placeholder="Tuần số (VD: 12)" type="number">
+            <input id="dfrom-k" placeholder="Từ ngày (17/3)">
+            <input id="dto-k" placeholder="Đến ngày (23/3)">
+          </div>
+
+          <div class="meta-row" style="grid-template-columns: 1fr 1fr;">
+            <input id="budget-hn-k" type="number" placeholder="Ngân sách HN (Nhập tay)...">
+            <input id="budget-hcm-k" type="number" placeholder="Ngân sách HCM (Nhập tay)...">
+          </div>
+
+          <div class="meta-row" style="grid-template-columns: 1fr 1fr; margin-top: -7px;">
+            <input id="khm-hn-k" type="text" placeholder="Doanh thu KHM HN (Nhập tay)...">
+            <input id="khm-hcm-k" type="text" placeholder="Doanh thu KHM HCM (Nhập tay)...">
+          </div>
+
+          <div class="sec-lbl">Dữ liệu từ Sale (Paste Text)</div>
+          <div class="iblock" style="border-color: var(--kosu); box-shadow: 0 0 10px rgba(255, 152, 0, 0.1);">
+            <div class="iblock-hdr" style="background: rgba(255,152,0,0.05);">
+              <div class="idot" style="background:var(--kosu)"></div>
+              <div class="iblock-title" style="color:var(--kosu)">Sale Online - Giày Kosu</div>
+            </div>
+            
+            <div class="img-area" style="border-bottom: 1px solid var(--bdr); padding-bottom: 15px; margin-bottom: 5px;">
+              <div class="drop-zone" style="border-color: rgba(255,152,0,0.4); padding: 10px;">
+                <input type="file" accept=".xlsx, .xls, .csv, .txt" onchange="handleKosuAdsFile(this.files)">
+                <div class="drop-lbl">
+                  <strong style="color:var(--kosu); font-size: 11px;">📁 Upload File Facebook Ads (.CSV)</strong>
+                  (AI tự lọc Page Chính JPS và Page Phụ theo quy tắc)
+                </div>
+              </div>
+              <div class="previews" id="preview-kosu-ads"></div>
+            </div>
+            
+            <div class="spend-box">
+              <input id="spend-k" type="text" placeholder="💰 Tổng chi tiêu QC (Sẽ tự điền nếu có file Ads)...">
+            </div>
+            <textarea id="sk" placeholder="Paste toàn bộ báo cáo Giày Kosu từ Sale vào đây (Click, Lead, Đơn, Doanh thu...)..." style="min-height: 120px; border-top: 1px dashed var(--bdr); margin-top: 10px; padding-top: 10px;"></textarea>
+
+            <div class="img-area" style="border-top: 1px solid var(--bdr); margin-top: 10px; padding-top: 15px;">
+              <div class="drop-zone" style="border-color: rgba(56, 224, 176, 0.4); padding: 10px; background: rgba(56, 224, 176, 0.02);">
+                <input type="file" accept=".xlsx, .xls, .csv, .txt" onchange="handleKosuSapoFile(this.files)">
+                <div class="drop-lbl">
+                  <strong style="color:var(--acc2); font-size: 11px;">🛒 Upload File Doanh Thu SAPO (.CSV)</strong>
+                  (Tự động chia nguồn, vùng miền & Tìm SP Bán Chạy)
+                </div>
+              </div>
+              <div class="previews" id="preview-kosu-sapo"></div>
+            </div>
+          </div>
+
+          <div class="sec-lbl">Dữ liệu Cửa hàng bán Giày Kosu</div>
+          <div class="iblock" style="border-color: var(--warn);">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--warn)"></div>
+              <div class="iblock-title" style="color:var(--warn)">Khách Hàng Mới (KHM) - Giày Kosu</div>
+            </div>
+            <div class="img-area">
+              <div class="drop-zone" style="border-color: var(--warn);">
+                <input type="file" accept="image/*, .xlsx, .xls, .csv" multiple onchange="handleFiles(this.files, 'kosu_stores')">
+                <div class="drop-lbl">
+                  <strong style="color:var(--warn)">📷 Upload Ảnh hoặc Excel Cửa hàng</strong>
+                  (AI trích xuất KHM. Hoặc có thể nhập tay ở ô bên trên)
+                </div>
+              </div>
+              <div class="previews" id="previews-kosu_stores"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-kosu-thang" class="d-none">
+          <div class="sec-lbl" style="color:var(--kosu);">Thông tin báo cáo Tháng (Giày Kosu)</div>
+          <div class="meta-row">
+            <input id="month-k" placeholder="Tháng số (VD: 2)" type="number">
+            <input id="m-from-k" placeholder="Từ ngày (1/2)">
+            <input id="m-to-k" placeholder="Đến ngày (28/2)">
+          </div>
+
+          <div class="sec-lbl">Input 1: KPI Dự Án Giày Kosu</div>
+          <div class="iblock" style="border-color: var(--tx2);">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--tx2)"></div>
+              <div class="iblock-title" style="color:var(--tx2)">KPI Tháng</div>
+            </div>
+            <div class="img-area">
+              <div class="drop-zone">
+                <input type="file" accept="image/*, .xlsx, .xls, .csv" multiple onchange="handleFiles(this.files, 'kpi_kosu')">
+                <div class="drop-lbl">
+                  <strong>📷 Upload Ảnh hoặc File Excel KPI</strong>
+                </div>
+              </div>
+              <div class="previews" id="previews-kpi_kosu"></div>
+            </div>
+          </div>
+
+          <div class="sec-lbl">Input 2: Kết Quả Kinh Doanh Tháng</div>
+          <div class="iblock" style="border-color: var(--kosu); box-shadow: 0 0 10px rgba(255, 152, 0, 0.1);">
+            <div class="iblock-hdr" style="background: rgba(255,152,0,0.05);">
+              <div class="idot" style="background:var(--kosu)"></div>
+              <div class="iblock-title" style="color:var(--kosu)">Số liệu Thực đạt Kosu</div>
+            </div>
+            <div class="img-area">
+              <div class="drop-zone" style="border-color: var(--kosu);">
+                <input type="file" accept="image/*, .xlsx, .xls, .csv" multiple onchange="handleFiles(this.files, 'thang_kosu')">
+                <div class="drop-lbl">
+                  <strong style="color:var(--kosu)">📷 Upload File/Ảnh Kết quả Tháng</strong>
+                </div>
+              </div>
+              <div class="previews" id="previews-thang_kosu"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-kosu-dashboard" class="d-none">
+          <div class="sec-lbl" style="color:var(--acc2);">Dashboard Phân Tích Sản Phẩm (Kosu)</div>
+
+          <div class="iblock" style="border-color: var(--tx);">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--tx)"></div>
+              <div class="iblock-title" style="color:var(--tx)">1. Dữ liệu THÁNG HIỆN TẠI</div>
+            </div>
+            <div class="img-area" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <div>
+                <div class="drop-zone">
+                  <input type="file" accept=".xlsx, .xls, .csv" onchange="handleDbFile(this.files, 'sapo_cur')">
+                  <div class="drop-lbl"><strong>🛒 Upload file Sapo</strong></div>
+                </div>
+                <div id="prev_db_sapo_cur"></div>
+              </div>
+              <div>
+                <div class="drop-zone">
+                  <input type="file" accept=".xlsx, .xls, .csv" onchange="handleDbFile(this.files, 'ads_cur')">
+                  <div class="drop-lbl"><strong style="color:var(--gunze)">📘 Upload FB Ads</strong></div>
+                </div>
+                <div id="prev_db_ads_cur"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="iblock" style="border-color: var(--tx3);">
+            <div class="iblock-hdr">
+              <div class="idot" style="background:var(--tx3)"></div>
+              <div class="iblock-title" style="color:var(--tx3)">2. Dữ liệu THÁNG TRƯỚC (Để so sánh)</div>
+            </div>
+            <div class="img-area" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <div>
+                <div class="drop-zone" style="border-color: var(--tx3);">
+                  <input type="file" accept=".xlsx, .xls, .csv" onchange="handleDbFile(this.files, 'sapo_prev')">
+                  <div class="drop-lbl" style="color:var(--tx3)"><strong>🛒 Upload file Sapo (Cũ)</strong></div>
+                </div>
+                <div id="prev_db_sapo_prev"></div>
+              </div>
+              <div>
+                <div class="drop-zone" style="border-color: var(--tx3);">
+                  <input type="file" accept=".xlsx, .xls, .csv" onchange="handleDbFile(this.files, 'ads_prev')">
+                  <div class="drop-lbl" style="color:var(--tx3)"><strong>📘 Upload FB Ads (Cũ)</strong></div>
+                </div>
+                <div id="prev_db_ads_prev"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="sec-lbl" style="margin-top: 15px;">Ghi chú thêm cho AI (Tùy chọn)</div>
+      <textarea id="ai-custom-note" placeholder="VD: Nhấn mạnh vào lý do hụt doanh thu, hoặc phân tích sâu về hiệu quả chốt đơn..." style="min-height: 60px; margin-bottom: 15px; border: 1px solid var(--bdr); border-radius: 8px; background: var(--sur); padding: 10px; color: var(--tx); font-size: 11px;"></textarea>
+
+    </div>
+    <button class="btn-gen" id="gbtn" onclick="gen()">✦ Tạo báo cáo</button>
+  </div>
+
+  <div class="right">
+    <div class="out-bar">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span>📄 Báo cáo</span>
+        <select id="hist-sel" class="hist-select" onchange="viewHist()">
+          <option value="">-- Xem lịch sử --</option>
+        </select>
+        <button id="del-btn" class="btn-del-hist" onclick="deleteHist()" title="Xoá báo cáo đang xem">🗑️</button>
+        <button id="del-all-btn" class="btn-del-hist" onclick="deleteAllHist()" title="Xoá toàn bộ lịch sử">🧹 Xoá hết</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button id="magic-btn" class="btn-magic opt" onclick="getAiInsights()" title="Đề xuất chiến lược tối ưu">✨ Đề xuất</button>
+        <button id="forecast-btn" class="btn-magic fc" onclick="forecastFuture()" title="Dự báo doanh thu chu kỳ tới">🔮 Dự báo</button>
+        <button class="btn-copy" id="pdf-btn" onclick="exportPDF()" title="Lưu báo cáo thành file PDF">📄 Tải PDF</button>
+        <button class="btn-copy" id="cbtn" onclick="doCopy()">⎘ Sao chép</button>
+        <button class="btn-copy" id="fs-btn" onclick="openFullscreen()" title="Xem báo cáo toàn màn hình">⛶ Full screen</button>
+        <button class="btn-copy" onclick="openAiSettings()" style="border-color:var(--warn); color:var(--warn);">⚙️ Cài đặt AI</button>
+      </div>
+    </div>
+    
+    <div class="out-body" id="out">
+      <div class="s-empty">
+        <div class="ico">🗂️</div>
+        <p>Chọn loại báo cáo, tải số liệu lên</p>
+        <p>rồi nhấn <strong style="color:var(--acc)">Tạo báo cáo</strong></p>
+      </div>
+    </div>
+    
+    <div class="chat-box" id="ai-chat-box" style="display: none; flex-direction: column; height: 260px; border-top: 1px solid var(--bdr); background: var(--sur); flex-shrink: 0;">
+      <div style="padding: 10px 22px; font-size: 11px; font-weight: 700; color: var(--warn); border-bottom: 1px solid var(--bdr); background: rgba(255, 188, 87, 0.05); text-transform: uppercase;">
+        💬 Hỏi đáp & Cố vấn dữ liệu
+      </div>
+      <div class="chat-hist" id="chat-hist" style="flex: 1; overflow-y: auto; padding: 15px 22px; font-size: 12px; display: flex; flex-direction: column; gap: 10px;">
+        <div class="msg ai" style="background: var(--sur2); border: 1px solid var(--bdr); color: var(--tx2); padding: 8px 12px; border-radius: 8px; align-self: flex-start; max-width: 85%;">Chào sếp! Tôi là Trợ lý Dữ liệu cấp cao. Tôi đã đọc xong báo cáo này, sếp cần phân tích hay bóc tách số liệu nào cứ bảo tôi nhé!</div>
+      </div>
+      <div class="chat-input-area" style="display: flex; padding: 10px 22px; gap: 8px; border-top: 1px solid var(--bdr); background: var(--bg);">
+        <input type="text" id="chat-input" placeholder="Hỏi AI kiểm tra số liệu, giải thích nguyên nhân..." style="flex: 1; background: var(--sur2); border: 1px solid var(--bdr); color: var(--tx); padding: 8px 12px; border-radius: 6px; font-size: 12px; outline: none; font-family: 'Be Vietnam Pro', sans-serif;" onkeypress="if(event.key === 'Enter') sendChat()">
+        <button onclick="sendChat()" style="background: var(--acc); color: white; border: none; padding: 0 15px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px;">Gửi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
