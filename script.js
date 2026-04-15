@@ -1068,7 +1068,9 @@ function renderTuan(d, gc, mc, gTot, gHCM, gHN, mTot, mHCM, mHN, period, from, t
 let originalRptParent = null;
 
 function openFullscreen() {
-  const rpt = document.getElementById('rpt');
+  // Lấy báo cáo theo ID hoặc lấy thẻ div đầu tiên trong #out (trừ thẻ báo lỗi s-empty)
+  const rpt = document.getElementById('rpt') || document.querySelector('#out > div:not(.s-empty)');
+  
   if (!rpt) { 
     alert('Chưa có báo cáo! Vui lòng tạo báo cáo trước.'); 
     return; 
@@ -1079,16 +1081,17 @@ function openFullscreen() {
   // 1. Ghi nhớ vị trí cha ban đầu của báo cáo (chính là thẻ #out)
   originalRptParent = rpt.parentNode;
   
-  // 2. NHẤC NGUYÊN BẢN báo cáo (không dùng outerHTML nữa) chuyển sang Fullscreen
+  // 2. NHẤC NGUYÊN BẢN báo cáo chuyển sang Fullscreen
   area.appendChild(rpt);
   
   // 3. Hiển thị màn hình Fullscreen
   document.getElementById('fs-report').classList.add('active');
-  document.body.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden'; // Chống cuộn body trang web bên dưới
 }
 
 function closeFullscreen() {
-  const rpt = document.getElementById('rpt');
+  // Lấy báo cáo (lúc này đang nằm trong fs-content-area)
+  const rpt = document.querySelector('#fs-content-area > div');
   
   // 1. Trả nguyên bản báo cáo về lại vị trí cũ bên ngoài Fullscreen
   if (rpt && originalRptParent) {
@@ -1097,7 +1100,7 @@ function closeFullscreen() {
   
   // 2. Ẩn màn hình Fullscreen
   document.getElementById('fs-report').classList.remove('active');
-  document.body.style.overflow = '';
+  document.body.style.overflow = ''; // Mở lại cuộn trang
 }
 async function doCopyKosuText() {
     const el = document.getElementById('kosu-text-report');
