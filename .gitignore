@@ -1,0 +1,10 @@
+# Tự động loại bỏ file backup nguyên thủy
+baocao_backup.html
+
+# Loại bỏ các file tạm của hệ điều hành
+.DS_Store
+Thumbs.db
+*.log
+
+# (Nếu sau này bạn dùng Nodejs)
+node_modules/
